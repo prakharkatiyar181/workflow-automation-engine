@@ -1,0 +1,14 @@
+# Enforce LF line endings in the repository regardless of OS
+* text=auto eol=lf
+
+# Explicitly mark shell scripts as LF (critical for Docker/Linux containers)
+*.sh text eol=lf
+
+# Binary files — no newline conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
