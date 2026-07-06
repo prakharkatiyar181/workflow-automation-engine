@@ -35,28 +35,39 @@ def _group_name(execution_id: Any) -> str:
     return f"execution_{execution_id}"
 
 
+from django.db import transaction
+
 def _send(group_name: str, payload: dict) -> None:
     """
     Synchronous wrapper around channel_layer.group_send.
+    Uses transaction.on_commit to ensure events are only sent AFTER the
+    database state has been fully committed. If there is no active
+    transaction, the callback executes immediately.
     Raises nothing — failures are logged and swallowed.
     """
-    try:
-        channel_layer = get_channel_layer()
-        if not channel_layer:
-            logger.warning("Channel layer not configured; skipping WebSocket event.")
-            return
+    def do_send() -> None:
+        try:
+            channel_layer = get_channel_layer()
+            if not channel_layer:
+                logger.warning("Channel layer not configured; skipping WebSocket event.")
+                return
 
-        async_to_sync(channel_layer.group_send)(
-            group_name,
-            {
-                # "type" here is the Channels dispatcher method name on the consumer.
-                # "execution.update" → ExecutionConsumer.execution_update()
-                "type": "execution.update",
-                "payload": payload,
-            },
-        )
+            async_to_sync(channel_layer.group_send)(
+                group_name,
+                {
+                    # "type" here is the Channels dispatcher method name on the consumer.
+                    # "execution.update" → ExecutionConsumer.execution_update()
+                    "type": "execution.update",
+                    "payload": payload,
+                },
+            )
+        except Exception as exc:
+            logger.error(f"WebSocket send failed (group={group_name}): {exc}")
+
+    try:
+        transaction.on_commit(do_send)
     except Exception as exc:
-        logger.error(f"WebSocket send failed (group={group_name}): {exc}")
+        logger.error(f"WebSocket send scheduling failed (group={group_name}): {exc}")
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
