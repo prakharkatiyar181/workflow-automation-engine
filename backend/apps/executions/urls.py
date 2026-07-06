@@ -1,10 +1,16 @@
 """
-Executions app URL patterns.
-
-Phase 1: Empty — routes will be added in Phase 3 when views are implemented.
+Executions app URL configuration — Phase 3.
 """
 from django.urls import path
 
+from .views import ExecutionDetailView
+
 app_name = "executions"
 
-urlpatterns: list = []
+urlpatterns = [
+    path(
+        "executions/<uuid:id>/",
+        ExecutionDetailView.as_view(),
+        name="execution-detail",
+    ),
+]

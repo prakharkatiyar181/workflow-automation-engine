@@ -1,8 +1,8 @@
 """
 Root URL configuration.
 
-In Phase 1 this only includes the health-check endpoint and the admin panel.
-API routes for pipelines and executions will be added in Phase 3.
+Phase 1: health-check + admin.
+Phase 3: pipeline and execution REST API routes.
 """
 from django.contrib import admin
 from django.http import JsonResponse
@@ -24,7 +24,12 @@ urlpatterns = [
     # Django admin panel
     path("admin/", admin.site.urls),
 
-    # App-level URL namespaces (added in Phase 3)
-    # path("api/", include("apps.pipelines.urls")),
-    # path("api/", include("apps.executions.urls")),
+    # Pipelines: list, create, detail, execute
+    path("api/", include("apps.pipelines.urls", namespace="pipelines")),
+
+    # Executions: detail
+    path("api/", include("apps.executions.urls", namespace="executions")),
+
+    # DRF browsable API login (development only — safe to keep, no auth bypass)
+    path("api-auth/", include("rest_framework.urls")),
 ]
