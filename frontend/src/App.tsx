@@ -1,5 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Dashboard from "@/pages/Dashboard";
+import CreatePipeline from "@/pages/CreatePipeline";
+import ExecutionDetail from "@/pages/ExecutionDetail";
 
 /**
  * Root application component.
@@ -11,13 +13,9 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Phase 1: placeholder dashboard */}
         <Route path="/" element={<Dashboard />} />
-
-        {/* Phase 6 routes — uncomment when implemented:
         <Route path="/create" element={<CreatePipeline />} />
         <Route path="/executions/:id" element={<ExecutionDetail />} />
-        */}
       </Routes>
     </BrowserRouter>
   );

@@ -33,6 +33,8 @@ export interface Pipeline {
   created_at: string;  // ISO 8601
   updated_at: string;
   latest_execution: LatestExecution | null;
+  tasks?: PipelineTask[];
+  dependencies?: Array<{ from: string; to: string }>;
 }
 
 export interface LatestExecution {

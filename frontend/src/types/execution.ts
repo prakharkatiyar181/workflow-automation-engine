@@ -20,10 +20,7 @@ export type TaskExecutionStatus =
 
 export interface TaskExecution {
   id: string;
-  task: {
-    id: string;
-    name: string;
-  };
+  name: string;            // task.name — serializer exposes as top-level "name"
   status: TaskExecutionStatus;
   started_at: string | null;   // ISO 8601
   completed_at: string | null;
@@ -33,16 +30,15 @@ export interface TaskExecution {
 
 export interface PipelineExecution {
   id: string;
-  pipeline: {
-    id: string;
-    name: string;
-  };
+  pipeline_id: string;     // from PipelineExecutionDetailSerializer
+  pipeline_name: string;
   status: ExecutionStatus;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
-  task_executions: TaskExecution[];
+  tasks: TaskExecution[];  // serializer field name is "tasks" (source=task_executions)
 }
+
 
 /** WebSocket event payloads (server → client) */
 export interface WsTaskUpdateEvent {
