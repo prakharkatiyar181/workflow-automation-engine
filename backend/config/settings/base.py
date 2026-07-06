@@ -22,6 +22,7 @@ SECRET_KEY: str = config("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS: list[str] = []
 
 # ── Application Definition ────────────────────────────────────────────────────
+# daphne MUST appear before django.contrib.staticfiles (enforced by daphne.E001).
 DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -34,8 +35,6 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "corsheaders",
-    # daphne must appear before django.contrib.staticfiles to serve WS properly
-    "daphne",
     "channels",
 ]
 
@@ -44,7 +43,8 @@ LOCAL_APPS = [
     "apps.executions",
 ]
 
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+# daphne is listed first so it precedes django.contrib.staticfiles.
+INSTALLED_APPS = ["daphne"] + DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # ── Middleware ─────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
