@@ -4,7 +4,9 @@ import type { WsEvent, WsTaskUpdateEvent, WsExecutionUpdateEvent, PipelineExecut
 import { executionQueryKey } from "./useExecution";
 import { PIPELINES_QUERY_KEY } from "./usePipelines";
 
-const WS_BASE = `ws://${window.location.host}/ws/executions`;
+const WS_BASE = import.meta.env.VITE_WS_URL 
+  ? `${import.meta.env.VITE_WS_URL}/ws/executions` 
+  : `ws://${window.location.host}/ws/executions`;
 const RECONNECT_DELAY_MS = 3_000;
 const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED"]);
 
