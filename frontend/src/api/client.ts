@@ -38,7 +38,7 @@ apiClient.interceptors.response.use(
       error.response?.data?.message ||
       error.message ||
       "An unexpected error occurred";
-    error.userMessage = message;
+    (error as any).userMessage = message;
     return Promise.reject(error);
   }
 );
