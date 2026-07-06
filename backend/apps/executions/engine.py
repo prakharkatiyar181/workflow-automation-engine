@@ -13,7 +13,7 @@ from collections import defaultdict
 from django.db import transaction
 from django.utils import timezone
 
-from apps.executions.broadcaster import broadcast_pipeline_update, broadcast_task_update
+from apps.executions.events import send_execution_update, send_task_update
 from apps.executions.models import PipelineExecution, TaskExecution
 from apps.pipelines.models import TaskDependency
 
@@ -108,13 +108,13 @@ def propagate_failure_to_downstream(failed_task_exec: TaskExecution) -> None:
         )
         logger.info(f"[Execution {execution_id}] Skipped {len(visited)} downstream tasks due to failure.")
         
-        # Broadcast skipped status for all affected tasks
-        skipped_tasks = TaskExecution.objects.filter(
+        # Emit WebSocket event for each skipped task
+        skipped_tasks = TaskExecution.objects.select_related("task").filter(
             execution_id=execution_id,
             task_id__in=visited
         )
         for t in skipped_tasks:
-            broadcast_task_update(t)
+            send_task_update(t)
 
 
 @transaction.atomic
@@ -147,7 +147,7 @@ def finalize_execution(execution_id: uuid.UUID) -> None:
             t.status = TaskExecution.Status.SKIPPED
             t.completed_at = timezone.now()
             t.save(update_fields=["status", "completed_at"])
-            broadcast_task_update(t)
+            send_task_update(t)
 
     if has_failed:
         # 1. If any task FAILED -> Pipeline FAILED
@@ -160,6 +160,6 @@ def finalize_execution(execution_id: uuid.UUID) -> None:
 
     execution.completed_at = timezone.now()
     execution.save(update_fields=["status", "completed_at"])
-    
-    # Broadcast final pipeline state
-    broadcast_pipeline_update(execution)
+
+    # Emit final pipeline state to all connected clients
+    send_execution_update(execution)

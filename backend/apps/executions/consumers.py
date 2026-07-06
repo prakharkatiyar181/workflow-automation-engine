@@ -1,5 +1,13 @@
 """
-WebSocket consumer for live execution updates.
+WebSocket consumer for live pipeline execution updates.
+
+Route:  /ws/executions/<uuid:execution_id>/
+
+Protocol:
+  - Server-push only. Clients do NOT need to send messages.
+  - On connect:  client subscribes to execution_{execution_id} group.
+  - On event:    consumer forwards the event payload directly to the client as JSON.
+  - On disconnect: client is removed from the group automatically.
 """
 from __future__ import annotations
 
@@ -13,50 +21,36 @@ logger = logging.getLogger(__name__)
 
 class ExecutionConsumer(AsyncJsonWebsocketConsumer):
     """
-    Subscribes a WebSocket client to a specific pipeline execution's event group.
-    Forwards JSON events to the client.
+    Subscribes a WebSocket client to live updates for one pipeline execution.
     """
 
     async def connect(self) -> None:
-        """
-        Called when a client initiates a WebSocket connection.
-        Extracts execution_id from the URL and adds the socket to the group.
-        """
-        # The execution_id is captured in the URL routing pattern
         self.execution_id = self.scope["url_route"]["kwargs"]["execution_id"]
         self.group_name = f"execution_{self.execution_id}"
 
-        # Join room group
+        # Join the Redis channel group for this execution
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-
-        # Accept the connection
         await self.accept()
-        logger.info(f"WebSocket client connected to {self.group_name}")
+
+        logger.info(f"[WS] Client connected | group={self.group_name}")
 
     async def disconnect(self, close_code: int) -> None:
-        """
-        Called when the WebSocket closes for any reason.
-        """
-        # Leave room group
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        logger.info(f"WebSocket client disconnected from {self.group_name} (code: {close_code})")
+        logger.info(f"[WS] Client disconnected | group={self.group_name} code={close_code}")
+
+    async def receive_json(self, content: Any, **kwargs: Any) -> None:
+        """
+        Server-push only — we deliberately ignore any client messages.
+        """
+        pass
+
+    # ── Channel layer event handlers ──────────────────────────────────────────
 
     async def execution_update(self, event: dict[str, Any]) -> None:
         """
-        Handler for "execution.update" events sent via channel_layer.group_send.
-        Forwards the payload directly to the client as JSON.
-        
-        The expected event structure is:
-        {
-            "type": "execution.update",
-            "event_type": "pipeline_update" | "task_update",
-            "data": { ... serialized data ... }
-        }
+        Handles channel-layer messages of type "execution.update".
+        The 'payload' key holds the frontend-facing JSON object.
+
+        Called by channel_layer.group_send(..., {"type": "execution.update", "payload": {...}})
         """
-        # Send message to WebSocket
-        await self.send_json(
-            {
-                "type": event.get("event_type", "unknown"),
-                "data": event.get("data", {}),
-            }
-        )
+        await self.send_json(event["payload"])

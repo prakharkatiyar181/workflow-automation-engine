@@ -18,7 +18,7 @@ from apps.executions.engine import (
     finalize_execution,
     propagate_failure_to_downstream,
 )
-from apps.executions.broadcaster import broadcast_pipeline_update, broadcast_task_update
+from apps.executions.events import send_execution_update, send_task_update
 from apps.executions.models import PipelineExecution, TaskExecution
 from apps.executions.runners.simulated import SimulatedTaskRunner
 from apps.pipelines.models import TaskDependency
@@ -67,8 +67,8 @@ def run_task_execution(self, task_execution_id: uuid.UUID) -> dict[str, Any]:
             task_exec.completed_at = timezone.now()
             task_exec.save(update_fields=["status", "completed_at"])
             
-            # Broadcast skipped state
-            broadcast_task_update(task_exec)
+            # Emit WebSocket event: task skipped
+            send_task_update(task_exec)
             
             return {"task_execution_id": str(task_exec.id), "status": task_exec.status}
 
@@ -77,8 +77,8 @@ def run_task_execution(self, task_execution_id: uuid.UUID) -> dict[str, Any]:
         task_exec.started_at = timezone.now()
         task_exec.save(update_fields=["status", "started_at"])
 
-    # Broadcast running state
-    broadcast_task_update(task_exec)
+    # Emit WebSocket event: task is now RUNNING
+    send_task_update(task_exec)
 
     # 3. Execute runner (outside transaction to avoid holding DB locks during sleep/work)
     runner = SimulatedTaskRunner()
@@ -105,8 +105,8 @@ def run_task_execution(self, task_execution_id: uuid.UUID) -> dict[str, Any]:
             
         task_exec.save(update_fields=["status", "completed_at", "duration", "error_message"])
 
-    # Broadcast final task state (completed or failed)
-    broadcast_task_update(task_exec)
+    # Emit WebSocket event: task final state (COMPLETED or FAILED)
+    send_task_update(task_exec)
 
     logger.info(f"Task completed: {task_execution_id} with status {status}")
     return {"task_execution_id": str(task_exec.id), "status": status}
@@ -197,8 +197,8 @@ def dispatch_pipeline_execution(execution_id: uuid.UUID) -> None:
         execution.started_at = timezone.now()
         execution.save(update_fields=["status", "started_at"])
 
-    # Broadcast pipeline started
-    broadcast_pipeline_update(execution)
+    # Emit WebSocket event: pipeline is now RUNNING
+    send_execution_update(execution)
 
     # Calculate waves (returns list of lists of TaskExecution UUIDs)
     waves = calculate_waves(execution)
