@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useCreatePipeline } from "@/hooks/usePipelines";
 import Button from "@/components/ui/Button";
 import type { CreatePipelinePayload } from "@/types/pipeline";
+import { Trash2, ArrowDown } from "lucide-react";
 
 interface TaskField {
   name: string;
@@ -11,7 +12,7 @@ interface TaskField {
 }
 
 interface DependencyField {
-  task: string;     // task name
+  task: string;
   depends_on: string;
 }
 
@@ -59,8 +60,24 @@ export default function PipelineForm() {
       if (!t.name.trim()) errs[`task_${i}_name`] = "Task name is required";
     });
 
-    const duplicates = taskNames.filter((n, i) => taskNames.indexOf(n) !== i);
+    const duplicates = taskNames.filter((n, i) => taskNames.indexOf(n) !== i && n);
     if (duplicates.length) errs.duplicates = `Duplicate task names: ${[...new Set(duplicates)].join(", ")}`;
+
+    dependencies.forEach((d, i) => {
+      if (d.task && d.depends_on) {
+        if (d.task === d.depends_on) {
+          errs[`dep_${i}`] = "Self-dependency is not allowed";
+        } else {
+          // Check for duplicate dependencies
+          const isDuplicate = dependencies.findIndex(
+            (other, otherIdx) => otherIdx < i && other.task === d.task && other.depends_on === d.depends_on
+          ) !== -1;
+          if (isDuplicate) {
+            errs[`dep_${i}`] = "Duplicate dependency";
+          }
+        }
+      }
+    });
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -90,16 +107,16 @@ export default function PipelineForm() {
   const taskNameOptions = tasks.map((t) => t.name.trim()).filter(Boolean);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-500">
       {/* Pipeline info */}
       <section className="card p-6 space-y-4">
-        <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Pipeline</h2>
-        <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Pipeline Overview</h2>
+        <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1">Name *</label>
             <input
-              className="input w-full"
-              placeholder="e.g. Genome Analysis Pipeline"
+              className={`input w-full ${errors.name ? "border-red-500/50 focus:border-red-500/50" : ""}`}
+              placeholder="e.g. Data Ingestion Pipeline"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -121,39 +138,46 @@ export default function PipelineForm() {
       {/* Tasks */}
       <section className="card p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Tasks</h2>
+          <div>
+            <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Tasks</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Define the individual jobs to execute.</p>
+          </div>
           <Button type="button" variant="secondary" size="sm" onClick={addTask}>
             + Add Task
           </Button>
         </div>
 
         {errors.duplicates && (
-          <p className="text-red-400 text-xs">{errors.duplicates}</p>
+          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm">
+            {errors.duplicates}
+          </div>
         )}
 
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {tasks.map((task, idx) => (
-            <div key={idx} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-500">Task {idx + 1}</span>
+            <div 
+              key={idx} 
+              className="group bg-gray-800/40 rounded-lg p-5 border border-gray-700/50 hover:border-gray-600 transition-all duration-300 relative"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Task {idx + 1}</span>
                 {tasks.length > 1 && (
                   <button
                     type="button"
-                    className="text-gray-600 hover:text-red-400 transition-colors"
+                    className="text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                     onClick={() => removeTask(idx)}
+                    aria-label="Remove task"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-1">
+              <div className="space-y-4">
+                <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Name *</label>
                   <input
-                    className="input w-full"
-                    placeholder="e.g. Upload Data"
+                    className={`input w-full ${errors[`task_${idx}_name`] ? "border-red-500/50" : ""}`}
+                    placeholder="e.g. Fetch Data"
                     value={task.name}
                     onChange={(e) => updateTask(idx, "name", e.target.value)}
                   />
@@ -161,29 +185,31 @@ export default function PipelineForm() {
                     <p className="text-red-400 text-xs mt-1">{errors[`task_${idx}_name`]}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Duration (sec)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    className="input w-full"
-                    value={task.estimated_duration}
-                    onChange={(e) => updateTask(idx, "estimated_duration", e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
-                    Failure prob. (0–1)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    className="input w-full"
-                    value={task.failure_probability}
-                    onChange={(e) => updateTask(idx, "failure_probability", e.target.value)}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Duration (sec)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className="input w-full"
+                      value={task.estimated_duration}
+                      onChange={(e) => updateTask(idx, "estimated_duration", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">
+                      Failure prob. (0–1)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      className="input w-full"
+                      value={task.failure_probability}
+                      onChange={(e) => updateTask(idx, "failure_probability", e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -197,7 +223,7 @@ export default function PipelineForm() {
           <div>
             <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Dependencies</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Define which tasks must complete before others can start.
+              Control the execution order.
             </p>
           </div>
           <Button
@@ -212,51 +238,66 @@ export default function PipelineForm() {
         </div>
 
         {dependencies.length === 0 && (
-          <p className="text-xs text-gray-600 italic">
-            No dependencies — all tasks will run in parallel.
-          </p>
+          <div className="p-8 border border-dashed border-gray-700/50 rounded-lg text-center bg-gray-800/20">
+            <p className="text-sm text-gray-400">No dependencies defined.</p>
+            <p className="text-xs text-gray-500 mt-1">All tasks will run in parallel simultaneously.</p>
+          </div>
         )}
 
-        <div className="space-y-2">
-          {dependencies.map((dep, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <select
-                className="input flex-1"
-                value={dep.task}
-                onChange={(e) => updateDependency(idx, "task", e.target.value)}
-              >
-                <option value="">Task…</option>
-                {taskNameOptions.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-              <span className="text-gray-500 text-xs whitespace-nowrap">depends on</span>
-              <select
-                className="input flex-1"
-                value={dep.depends_on}
-                onChange={(e) => updateDependency(idx, "depends_on", e.target.value)}
-              >
-                <option value="">Task…</option>
-                {taskNameOptions.filter((n) => n !== dep.task).map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="text-gray-600 hover:text-red-400 transition-colors"
-                onClick={() => removeDependency(idx)}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
+        {dependencies.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {dependencies.map((dep, idx) => (
+              <div key={idx} className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50 space-y-3 relative group">
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  onClick={() => removeDependency(idx)}
+                  aria-label="Remove dependency"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <div className="flex flex-col gap-2 pt-2">
+                  <div className="flex flex-col text-sm bg-gray-900/50 p-3 rounded-md items-center border border-gray-700/30">
+                    <span className="font-mono text-gray-300">{dep.depends_on || "?"}</span>
+                    <ArrowDown className="w-4 h-4 text-gray-500 my-1" />
+                    <span className="font-mono text-blue-400">{dep.task || "?"}</span>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2 mt-2">
+                    <select
+                      className={`input w-full ${errors[`dep_${idx}`] ? "border-red-500/50" : ""}`}
+                      value={dep.task}
+                      onChange={(e) => updateDependency(idx, "task", e.target.value)}
+                    >
+                      <option value="">Task (Runs after)...</option>
+                      {taskNameOptions.map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                    
+                    <select
+                      className={`input w-full ${errors[`dep_${idx}`] ? "border-red-500/50" : ""}`}
+                      value={dep.depends_on}
+                      onChange={(e) => updateDependency(idx, "depends_on", e.target.value)}
+                    >
+                      <option value="">Depends on (Runs before)...</option>
+                      {taskNameOptions.map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {errors[`dep_${idx}`] && (
+                  <p className="text-red-400 text-xs mt-1 text-center">{errors[`dep_${idx}`]}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
         <Button type="button" variant="ghost" onClick={() => navigate("/")}>
           Cancel
         </Button>

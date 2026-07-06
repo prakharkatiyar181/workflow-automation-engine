@@ -7,6 +7,7 @@ import ReactFlow, {
   type Edge,
   BackgroundVariant,
 } from "reactflow";
+import dagre from "dagre";
 import "reactflow/dist/style.css";
 import type { PipelineExecution, TaskExecution } from "@/types/execution";
 import TaskNode, { type TaskNodeData } from "./TaskNode";
@@ -23,73 +24,47 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 /**
- * Compute a simple top-down layered layout.
- * We do a topological sort using in-degree and assign Y levels.
+ * Compute auto-layout using dagre.
  */
-function computeLayout(
-  tasks: TaskExecution[],
-  edges: Edge[]
-): Record<string, { x: number; y: number }> {
-  const NODE_W = 200;
-  const NODE_H = 80;
-  const H_GAP = 60;
-  const V_GAP = 80;
-
-  const idSet = new Set(tasks.map((t) => t.id));
-  const inDegree: Record<string, number> = {};
-  const adjacency: Record<string, string[]> = {};
+function getLayoutedElements(tasks: TaskExecution[], edges: Edge[]) {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  
+  // TB = top-to-bottom layout
+  dagreGraph.setGraph({ rankdir: "TB", nodesep: 80, ranksep: 120 });
 
   tasks.forEach((t) => {
-    inDegree[t.id] = 0;
-    adjacency[t.id] = [];
+    // Approx dimensions of the TaskNode component
+    dagreGraph.setNode(t.id, { width: 180, height: 80 });
   });
 
-  edges.forEach(({ source, target }) => {
-    if (idSet.has(source) && idSet.has(target)) {
-      adjacency[source].push(target);
-      inDegree[target] = (inDegree[target] ?? 0) + 1;
-    }
+  edges.forEach((e) => {
+    dagreGraph.setEdge(e.source, e.target);
   });
 
-  // BFS level assignment
-  const levels: Record<string, number> = {};
-  const queue = tasks.filter((t) => inDegree[t.id] === 0).map((t) => t.id);
-  queue.forEach((id) => (levels[id] = 0));
+  dagre.layout(dagreGraph);
 
-  const visited = new Set<string>();
-  let head = 0;
-  while (head < queue.length) {
-    const cur = queue[head++];
-    if (visited.has(cur)) continue;
-    visited.add(cur);
-    adjacency[cur].forEach((next) => {
-      const newLevel = (levels[cur] ?? 0) + 1;
-      if (levels[next] === undefined || levels[next] < newLevel) {
-        levels[next] = newLevel;
-      }
-      if (!visited.has(next)) queue.push(next);
-    });
-  }
-
-  // Group by level
-  const byLevel: Record<number, string[]> = {};
-  Object.entries(levels).forEach(([id, lvl]) => {
-    byLevel[lvl] = [...(byLevel[lvl] ?? []), id];
+  const nodes: Node<TaskNodeData>[] = tasks.map((te) => {
+    const nodeWithPosition = dagreGraph.node(te.id);
+    return {
+      id: te.id,
+      type: "taskNode",
+      targetPosition: "top" as any,
+      sourcePosition: "bottom" as any,
+      // Shift to center the nodes
+      position: {
+        x: nodeWithPosition.x - 180 / 2,
+        y: nodeWithPosition.y - 80 / 2,
+      },
+      data: {
+        label: te.name ?? te.id,
+        status: te.status,
+        duration: te.duration,
+      },
+    };
   });
 
-  const positions: Record<string, { x: number; y: number }> = {};
-  Object.entries(byLevel).forEach(([lvlStr, ids]) => {
-    const lvl = Number(lvlStr);
-    const totalWidth = ids.length * NODE_W + (ids.length - 1) * H_GAP;
-    ids.forEach((id, i) => {
-      positions[id] = {
-        x: i * (NODE_W + H_GAP) - totalWidth / 2 + NODE_W / 2,
-        y: lvl * (NODE_H + V_GAP),
-      };
-    });
-  });
-
-  return positions;
+  return nodes;
 }
 
 interface DAGCanvasProps {
@@ -105,25 +80,18 @@ export default function DAGCanvas({ execution, edges }: DAGCanvasProps) {
     [execution.tasks, selectedTaskId]
   );
 
-  const positions = useMemo(
-    () => computeLayout(execution.tasks, edges),
+  const rawNodes = useMemo(
+    () => getLayoutedElements(execution.tasks, edges),
     [execution.tasks, edges]
   );
 
   const nodes: Node<TaskNodeData>[] = useMemo(
     () =>
-      execution.tasks.map((te) => ({
-        id: te.id,
-        type: "taskNode",
-        position: positions[te.id] ?? { x: 0, y: 0 },
-        data: {
-          label: te.name ?? te.id,
-          status: te.status,
-          duration: te.duration,
-        },
-        selected: te.id === selectedTaskId,
+      rawNodes.map((n) => ({
+        ...n,
+        selected: n.id === selectedTaskId,
       })),
-    [execution.tasks, positions, selectedTaskId]
+    [rawNodes, selectedTaskId]
   );
 
   const onNodeClick = useCallback(
@@ -155,7 +123,7 @@ export default function DAGCanvas({ execution, edges }: DAGCanvasProps) {
           size={1}
           color="#374151"
         />
-        <Controls showInteractive={false} className="!bg-gray-800 !border-gray-700" />
+        <Controls showInteractive={false} className="!bg-gray-800 !border-gray-700 !fill-gray-300" />
         <MiniMap
           nodeColor={(n) => STATUS_COLORS[(n.data as TaskNodeData)?.status ?? "PENDING"]}
           maskColor="rgba(0,0,0,0.6)"

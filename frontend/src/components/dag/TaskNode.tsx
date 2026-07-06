@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Handle, Position, type NodeProps } from "reactflow";
 import type { TaskExecutionStatus } from "@/types/execution";
 import { clsx } from "clsx";
+import { Circle, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 
 export interface TaskNodeData {
   label: string;
@@ -23,12 +24,14 @@ const statusConfig: Record<TaskExecutionStatus, {
   SKIPPED:   { border: "border-amber-500",   bg: "bg-amber-900/30",   text: "text-amber-200",   glow: "shadow-amber-500/20",       pulse: false },
 };
 
-const statusIcon: Record<TaskExecutionStatus, string> = {
-  PENDING:   "○",
-  RUNNING:   "◎",
-  COMPLETED: "✓",
-  FAILED:    "✕",
-  SKIPPED:   "⊘",
+const StatusIcon = ({ status, className }: { status: TaskExecutionStatus; className?: string }) => {
+  switch (status) {
+    case "PENDING":   return <Circle className={className} />;
+    case "RUNNING":   return <Loader2 className={clsx(className, "animate-spin")} />;
+    case "COMPLETED": return <CheckCircle2 className={className} />;
+    case "FAILED":    return <XCircle className={className} />;
+    case "SKIPPED":   return <AlertCircle className={className} />;
+  }
 };
 
 function TaskNode({ data, selected }: NodeProps<TaskNodeData>) {
@@ -36,7 +39,7 @@ function TaskNode({ data, selected }: NodeProps<TaskNodeData>) {
 
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!bg-gray-600 !border-gray-500" />
+      <Handle type="target" position={Position.Top} className="!bg-gray-600 !border-gray-500 !w-3 !h-3" />
       <div
         className={clsx(
           "min-w-[140px] max-w-[180px] rounded-xl border-2 px-4 py-3 transition-all duration-300",
@@ -49,9 +52,7 @@ function TaskNode({ data, selected }: NodeProps<TaskNodeData>) {
       >
         {/* Status icon + name */}
         <div className="flex items-center gap-2">
-          <span className={clsx("text-sm font-mono leading-none", cfg.text)}>
-            {statusIcon[data.status]}
-          </span>
+          <StatusIcon status={data.status} className={clsx("w-4 h-4 shrink-0", cfg.text)} />
           <span className={clsx("text-xs font-semibold truncate", cfg.text)}>
             {data.label}
           </span>
@@ -64,7 +65,7 @@ function TaskNode({ data, selected }: NodeProps<TaskNodeData>) {
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-gray-600 !border-gray-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-gray-600 !border-gray-500 !w-3 !h-3" />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { WsEvent, WsTaskUpdateEvent, WsExecutionUpdateEvent, PipelineExecution } from "@/types/execution";
 import { executionQueryKey } from "./useExecution";
@@ -16,6 +16,9 @@ export function useExecutionWS(executionId: string) {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMounted = useRef(true);
 
+  const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+
   useEffect(() => {
     isMounted.current = true;
 
@@ -26,6 +29,8 @@ export function useExecutionWS(executionId: string) {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        setIsConnected(true);
+        setIsReconnecting(false);
         // Clear any pending reconnect timer on successful connect
         if (reconnectTimer.current) {
           clearTimeout(reconnectTimer.current);
@@ -53,6 +58,7 @@ export function useExecutionWS(executionId: string) {
       };
 
       ws.onclose = () => {
+        setIsConnected(false);
         wsRef.current = null;
         if (!isMounted.current) return;
 
@@ -62,6 +68,7 @@ export function useExecutionWS(executionId: string) {
         );
         if (cached && TERMINAL_STATUSES.has(cached.status)) return;
 
+        setIsReconnecting(true);
         reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY_MS);
       };
     }
@@ -120,4 +127,6 @@ export function useExecutionWS(executionId: string) {
       }
     };
   }, [executionId, queryClient]);
+
+  return { isConnected, isReconnecting };
 }
