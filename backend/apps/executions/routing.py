@@ -8,8 +8,8 @@ Expected final pattern:
 """
 from django.urls import path
 
-# Phase 5 will add:
-# from apps.executions.consumers import ExecutionConsumer
-# path("ws/executions/<uuid:execution_id>/", ExecutionConsumer.as_asgi())
+from apps.executions.consumers import ExecutionConsumer
 
-websocket_urlpatterns: list = []
+websocket_urlpatterns = [
+    path("ws/executions/<uuid:execution_id>/", ExecutionConsumer.as_asgi()),
+]

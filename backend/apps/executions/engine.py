@@ -13,6 +13,7 @@ from collections import defaultdict
 from django.db import transaction
 from django.utils import timezone
 
+from apps.executions.broadcaster import broadcast_pipeline_update, broadcast_task_update
 from apps.executions.models import PipelineExecution, TaskExecution
 from apps.pipelines.models import TaskDependency
 
@@ -106,6 +107,14 @@ def propagate_failure_to_downstream(failed_task_exec: TaskExecution) -> None:
             completed_at=timezone.now()
         )
         logger.info(f"[Execution {execution_id}] Skipped {len(visited)} downstream tasks due to failure.")
+        
+        # Broadcast skipped status for all affected tasks
+        skipped_tasks = TaskExecution.objects.filter(
+            execution_id=execution_id,
+            task_id__in=visited
+        )
+        for t in skipped_tasks:
+            broadcast_task_update(t)
 
 
 @transaction.atomic
@@ -142,6 +151,13 @@ def finalize_execution(execution_id: uuid.UUID) -> None:
                 status=TaskExecution.Status.SKIPPED,
                 completed_at=timezone.now()
             )
+            # Broadcast skipped statuses
+            skipped = execution.task_executions.filter(status=TaskExecution.Status.SKIPPED)
+            for t in skipped:
+                broadcast_task_update(t)
+        
+        # Broadcast final pipeline state
+        broadcast_pipeline_update(execution)
 
     elif not has_pending and not has_running:
         # 2. If no tasks are pending/running/failed -> Pipeline COMPLETED
@@ -149,6 +165,9 @@ def finalize_execution(execution_id: uuid.UUID) -> None:
         execution.completed_at = timezone.now()
         execution.save(update_fields=["status", "completed_at"])
         logger.info(f"Pipeline execution {execution.id} finalized as COMPLETED.")
+        
+        # Broadcast final pipeline state
+        broadcast_pipeline_update(execution)
     else:
         # Still tasks in progress. Keep it running.
         pass
