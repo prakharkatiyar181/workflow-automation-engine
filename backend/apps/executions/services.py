@@ -36,7 +36,7 @@ def create_execution(pipeline: Pipeline) -> PipelineExecution:
                 task=task,
                 status=TaskExecution.Status.PENDING,
             )
-            for task in pipeline.tasks.order_by("order", "created_at")
+            for task in pipeline.tasks.all()
         ]
         TaskExecution.objects.bulk_create(task_executions)
 
