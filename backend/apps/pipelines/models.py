@@ -55,9 +55,6 @@ class PipelineTask(models.Model):
         ordering = ["pipeline", "order", "created_at"]
         verbose_name = "Pipeline Task"
         verbose_name_plural = "Pipeline Tasks"
-        indexes = [
-            models.Index(fields=["pipeline"]),
-        ]
 
     def __str__(self) -> str:
         return f"{self.name} [{self.pipeline.name}]"
@@ -86,10 +83,6 @@ class TaskDependency(models.Model):
     class Meta:
         verbose_name = "Task Dependency"
         verbose_name_plural = "Task Dependencies"
-        indexes = [
-            models.Index(fields=["task"]),
-            models.Index(fields=["depends_on"]),
-        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["task", "depends_on"], name="unique_task_dependency"

@@ -33,7 +33,6 @@ class PipelineExecution(models.Model):
         verbose_name = "Pipeline Execution"
         verbose_name_plural = "Pipeline Executions"
         indexes = [
-            models.Index(fields=["pipeline"]),
             models.Index(fields=["status"]),
             models.Index(fields=["created_at"]),
         ]
@@ -82,8 +81,6 @@ class TaskExecution(models.Model):
         verbose_name = "Task Execution"
         verbose_name_plural = "Task Executions"
         indexes = [
-            models.Index(fields=["execution"]),
-            models.Index(fields=["task"]),
             models.Index(fields=["status"]),
         ]
         constraints = [
