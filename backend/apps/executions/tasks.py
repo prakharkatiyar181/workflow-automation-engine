@@ -37,23 +37,28 @@ def run_task_execution(self, task_execution_id: uuid.UUID) -> dict[str, Any]:
     Executes a single task. Returns safely (without raising business exceptions)
     so the Celery chord callback is always fired.
     """
-    logger.info(f"Task started: {task_execution_id}")
-    
     with transaction.atomic():
         try:
-            task_exec = TaskExecution.objects.select_for_update().get(id=task_execution_id)
+            # We select_related("task") to have pipeline_id easily accessible for logging
+            task_exec = TaskExecution.objects.select_for_update().select_related("task").get(id=task_execution_id)
         except TaskExecution.DoesNotExist:
             logger.error(f"TaskExecution {task_execution_id} not found.")
             return {"task_execution_id": str(task_execution_id), "status": "FAILED"}
+            
+        pipeline_id = task_exec.task.pipeline_id
+        task_name = task_exec.task.name
+        
+        logger.info(f"Execution {task_exec.execution_id} | Pipeline {pipeline_id} | Task started: {task_name} ({task_execution_id})")
+
+        if task_exec.status != TaskExecution.Status.PENDING:
+            logger.info(f"Task {task_execution_id} is already {task_exec.status}, bypassing execution.")
+            return {"task_execution_id": str(task_exec.id), "status": task_exec.status}
 
         # 1. Re-check dependencies for safety
-        upstream_task_ids = TaskDependency.objects.filter(
-            task=task_exec.task
-        ).values_list("depends_on_id", flat=True)
-
+        # We can optimize this into a single query using a subquery for depends_on_id
         upstream_execs = TaskExecution.objects.filter(
             execution_id=task_exec.execution_id,
-            task_id__in=upstream_task_ids
+            task_id__in=TaskDependency.objects.filter(task=task_exec.task).values("depends_on_id")
         )
 
         if any(ue.status != TaskExecution.Status.COMPLETED for ue in upstream_execs):
@@ -143,9 +148,8 @@ def dispatch_next_wave(
                 except TaskExecution.DoesNotExist:
                     pass
         
-        # Pipeline execution fails
-        finalize_execution(execution_id)
-        return
+        # DO NOT finalize_execution or return here! 
+        # We MUST dispatch the next wave so independent branches can continue.
 
     # No failures -> Dispatch next wave if it exists
     if next_wave_index < len(waves_data):

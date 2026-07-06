@@ -130,44 +130,36 @@ def finalize_execution(execution_id: uuid.UUID) -> None:
     if execution.status in (PipelineExecution.Status.COMPLETED, PipelineExecution.Status.FAILED):
         return
 
-    task_statuses = list(execution.task_executions.values_list("status", flat=True))
+    task_statuses = set(execution.task_executions.values_list("status", flat=True))
 
     has_failed = TaskExecution.Status.FAILED in task_statuses
     has_pending = TaskExecution.Status.PENDING in task_statuses
     has_running = TaskExecution.Status.RUNNING in task_statuses
 
+    if has_running:
+        # Still tasks in progress. Keep it running.
+        return
+
+    if has_pending:
+        logger.warning(f"Execution {execution_id} has leftover PENDING tasks at finalization. Marking as SKIPPED.")
+        leftovers = execution.task_executions.filter(status=TaskExecution.Status.PENDING)
+        for t in leftovers:
+            t.status = TaskExecution.Status.SKIPPED
+            t.completed_at = timezone.now()
+            t.save(update_fields=["status", "completed_at"])
+            broadcast_task_update(t)
+
     if has_failed:
         # 1. If any task FAILED -> Pipeline FAILED
         execution.status = PipelineExecution.Status.FAILED
-        execution.completed_at = timezone.now()
-        execution.save(update_fields=["status", "completed_at"])
         logger.info(f"Pipeline execution {execution.id} finalized as FAILED.")
-        
-        # Ensure any leftover pending tasks are skipped
-        if has_pending:
-            execution.task_executions.filter(
-                status=TaskExecution.Status.PENDING
-            ).update(
-                status=TaskExecution.Status.SKIPPED,
-                completed_at=timezone.now()
-            )
-            # Broadcast skipped statuses
-            skipped = execution.task_executions.filter(status=TaskExecution.Status.SKIPPED)
-            for t in skipped:
-                broadcast_task_update(t)
-        
-        # Broadcast final pipeline state
-        broadcast_pipeline_update(execution)
-
-    elif not has_pending and not has_running:
-        # 2. If no tasks are pending/running/failed -> Pipeline COMPLETED
-        execution.status = PipelineExecution.Status.COMPLETED
-        execution.completed_at = timezone.now()
-        execution.save(update_fields=["status", "completed_at"])
-        logger.info(f"Pipeline execution {execution.id} finalized as COMPLETED.")
-        
-        # Broadcast final pipeline state
-        broadcast_pipeline_update(execution)
     else:
-        # Still tasks in progress. Keep it running.
-        pass
+        # 2. If no tasks failed -> Pipeline COMPLETED
+        execution.status = PipelineExecution.Status.COMPLETED
+        logger.info(f"Pipeline execution {execution.id} finalized as COMPLETED.")
+
+    execution.completed_at = timezone.now()
+    execution.save(update_fields=["status", "completed_at"])
+    
+    # Broadcast final pipeline state
+    broadcast_pipeline_update(execution)
