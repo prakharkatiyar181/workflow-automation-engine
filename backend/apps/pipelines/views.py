@@ -139,5 +139,10 @@ class PipelineViewSet(GenericViewSet):
             )
 
         execution = create_execution(pipeline)
+        
+        # Trigger Celery task
+        from apps.executions.tasks import dispatch_pipeline_execution
+        dispatch_pipeline_execution.delay(execution.id)
+
         serializer = ExecutionCreateResponseSerializer(execution)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
