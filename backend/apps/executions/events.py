@@ -90,9 +90,11 @@ def send_task_update(task_execution: TaskExecution) -> None:
         }
     """
     try:
-        # task_execution may or may not have task already joined — guard either way
-        task = task_execution.task if hasattr(task_execution, "_state") else None
-        task_name: str = task.name if task else str(task_execution.task_id)
+        # All callers use select_related("task"), so task is already loaded.
+        # Access via __dict__ to avoid triggering a new DB query if somehow
+        # the relation wasn't prefetched.
+        task_obj = task_execution.__dict__.get("task_cache") or task_execution.task
+        task_name: str = task_obj.name
 
         started_at = (
             task_execution.started_at.isoformat() if task_execution.started_at else None

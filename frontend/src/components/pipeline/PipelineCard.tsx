@@ -39,7 +39,11 @@ export default function PipelineCard({ pipeline }: PipelineCardProps) {
           <div className="min-w-0">
             <h3
               className="text-lg font-bold text-white truncate group-hover:text-blue-400 transition-colors cursor-pointer"
-              onClick={() => navigate(`/executions/${pipeline.latest_execution?.id || ''}`)}
+              onClick={() =>
+                pipeline.latest_execution
+                  ? navigate(`/executions/${pipeline.latest_execution.id}`)
+                  : navigate(`/pipelines/${pipeline.id}`)
+              }
               title={pipeline.name}
             >
               {pipeline.name}
@@ -82,7 +86,13 @@ export default function PipelineCard({ pipeline }: PipelineCardProps) {
             <ChevronRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
           </button>
         ) : (
-          <span className="text-xs font-medium text-gray-600">No executions yet</span>
+          <button
+            className="text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1 group/btn"
+            onClick={() => navigate(`/pipelines/${pipeline.id}`)}
+          >
+            View pipeline
+            <ChevronRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+          </button>
         )}
         <Button
           size="sm"

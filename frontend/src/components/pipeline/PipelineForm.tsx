@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCreatePipeline } from "@/hooks/usePipelines";
 import Button from "@/components/ui/Button";
@@ -33,8 +33,19 @@ export default function PipelineForm() {
   const [dependencies, setDependencies] = useState<DependencyField[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const addTask = () =>
-    setTasks((prev) => [...prev, { name: "", estimated_duration: 5, failure_probability: 0 }]);
+  const taskNameRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const depSelectRefs = useRef<(HTMLSelectElement | null)[]>([]);
+
+  const addTask = useCallback(() => {
+    setTasks((prev) => {
+      const next = [...prev, { name: "", estimated_duration: 5, failure_probability: 0 }];
+      // Focus the new task name input after render
+      requestAnimationFrame(() => {
+        taskNameRefs.current[next.length - 1]?.focus();
+      });
+      return next;
+    });
+  }, []);
 
   const removeTask = (idx: number) => {
     const removed = tasks[idx].name;
@@ -47,8 +58,15 @@ export default function PipelineForm() {
   const updateTask = (idx: number, field: keyof TaskField, value: string | number) =>
     setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, [field]: value } : t)));
 
-  const addDependency = () =>
-    setDependencies((prev) => [...prev, { task: "", depends_on: "" }]);
+  const addDependency = useCallback(() => {
+    setDependencies((prev) => {
+      const next = [...prev, { task: "", depends_on: "" }];
+      requestAnimationFrame(() => {
+        depSelectRefs.current[next.length - 1]?.focus();
+      });
+      return next;
+    });
+  }, []);
 
   const removeDependency = (idx: number) =>
     setDependencies((prev) => prev.filter((_, i) => i !== idx));
@@ -126,6 +144,7 @@ export default function PipelineForm() {
             <Input
               label="Pipeline Name"
               required
+              autoFocus
               placeholder="e.g. Data Ingestion Pipeline"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -181,6 +200,7 @@ export default function PipelineForm() {
                 </div>
                 <div className="space-y-4">
                   <Input
+                    ref={(el) => { taskNameRefs.current[idx] = el; }}
                     label="Name"
                     required
                     placeholder="e.g. Fetch Data"
@@ -257,6 +277,7 @@ export default function PipelineForm() {
                   
                   <div className="space-y-3">
                     <Select
+                      ref={(el) => { depSelectRefs.current[idx] = el; }}
                       value={dep.depends_on}
                       onChange={(e) => updateDependency(idx, "depends_on", e.target.value)}
                       error={errors[`dep_${idx}`]}

@@ -246,3 +246,92 @@ docker compose run --rm backend python manage.py createsuperuser
 # Tail all service logs
 docker compose logs -f
 ```
+
+## Technical Decisions, Tradeoffs & Production Improvements
+
+The following documents deliberate decisions made during development, their rationale, and the production-grade path forward for each.
+
+---
+
+### 1. Simulated Task Execution
+
+**Current implementation:**
+Tasks are executed by `SimulatedTaskRunner`, which sleeps for `estimated_duration` seconds and randomly raises an exception based on `failure_probability`. No real shell commands or external processes are run.
+
+**Rationale:**
+The assignment focuses on DAG orchestration, scheduling, concurrency, and state management — not on wrapping specific commands. A simulated runner isolates the orchestration logic from environment-specific concerns (OS paths, Docker-in-Docker, credentials).
+
+**Production path:**
+```
+BaseTaskRunner (abstract)
+    ├── SimulatedTaskRunner   ← current
+    ├── ShellCommandRunner    ← run arbitrary shell commands
+    ├── HttpTaskRunner        ← POST to an external webhook/service
+    └── AwsBatchRunner        ← submit jobs to AWS Batch / ECS
+```
+The `BaseTaskRunner` interface is already in place. Swapping the runner requires changing a single line in `tasks.py`.
+
+---
+
+### 2. No Authentication
+
+**Current implementation:**
+All API endpoints are publicly accessible with no authentication or authorization layer.
+
+**Rationale:**
+The original assignment specification did not require multi-user access or authentication. Adding it would have introduced complexity (token management, middleware, test fixtures) without fulfilling a stated requirement.
+
+**Production path:**
+- JWT authentication via `djangorestframework-simplejwt`
+- Each `Pipeline` and `PipelineExecution` gains a `created_by` FK to `User`
+- Querysets are scoped per user: `Pipeline.objects.filter(created_by=request.user)`
+- RBAC roles: `viewer`, `operator`, `admin`
+
+---
+
+### 3. Immutable Pipelines (No Edit/Delete)
+
+**Current implementation:**
+Pipelines cannot be modified or deleted after creation. There is no `PUT /api/pipelines/{id}/` endpoint.
+
+**Rationale:**
+Allowing edits to a pipeline while executions are in progress would corrupt the relationship between `PipelineTask` records and `TaskExecution` records. The data model treats the pipeline definition as the ground truth for any execution derived from it.
+
+**Production path:**
+Introduce pipeline versioning:
+```
+Pipeline
+  └── PipelineVersion (immutable snapshot per version)
+        └── PipelineExecution (always references a specific version)
+```
+This allows the pipeline definition to evolve while keeping historical executions reproducible and traceable.
+
+---
+
+### 4. Execution Recovery on Worker Crash
+
+**Current limitation:**
+If a Celery worker process crashes while a `chord` is in-flight (e.g., mid-task during a deployment or OOM kill), the `dispatch_next_wave` chord callback is lost. The `PipelineExecution` will remain stuck in `RUNNING` status indefinitely with no automatic recovery.
+
+**Rationale:**
+Implementing a robust recovery mechanism requires a periodic background scheduler (Celery Beat), which would add meaningful complexity. This was treated as out of scope for the take-home assessment.
+
+The database remains fully consistent — no data is corrupted. Only the in-memory Celery state is lost.
+
+**Production path:**
+```python
+# Celery Beat periodic task (runs every 5 minutes)
+@shared_task
+def reconcile_stuck_executions():
+    cutoff = timezone.now() - timedelta(minutes=15)
+    stuck = PipelineExecution.objects.filter(
+        status=PipelineExecution.Status.RUNNING,
+        started_at__lt=cutoff
+    )
+    for execution in stuck:
+        # Mark as FAILED; send alert
+        execution.status = PipelineExecution.Status.FAILED
+        execution.save()
+        send_execution_update(execution)
+```
+Additional hardening: Celery task `acks_late=True` + idempotency guards ensure tasks are safe to retry after a worker restart.

@@ -60,13 +60,15 @@ def validate_dag(task_names: List[str], dependency_pairs: List[Tuple[str, str]])
     Checks (in order):
       1. All task names referenced in dependencies exist.
       2. No task depends on itself.
-      3. No cycle exists.
+      3. No duplicate dependency pairs.
+      4. No cycle exists.
 
     Raises:
         ValueError: with a human-readable message describing the first problem found.
     """
     task_name_set = set(task_names)
 
+    seen_pairs: set = set()
     for task, depends_on in dependency_pairs:
         if task not in task_name_set:
             raise ValueError(f"Dependency references unknown task: '{task}'")
@@ -74,6 +76,12 @@ def validate_dag(task_names: List[str], dependency_pairs: List[Tuple[str, str]])
             raise ValueError(f"Dependency references unknown task: '{depends_on}'")
         if task == depends_on:
             raise ValueError(f"Task '{task}' cannot depend on itself")
+        pair = (task, depends_on)
+        if pair in seen_pairs:
+            raise ValueError(
+                f"Duplicate dependency detected: '{task}' already depends on '{depends_on}'"
+            )
+        seen_pairs.add(pair)
 
     if detect_cycle(task_names, dependency_pairs):
         raise ValueError("Pipeline contains a circular dependency")
