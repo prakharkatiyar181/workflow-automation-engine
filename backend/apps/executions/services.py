@@ -8,6 +8,7 @@ from __future__ import annotations
 from django.db import transaction
 
 from apps.pipelines.models import Pipeline
+from apps.executions.events import send_pipeline_list_update
 
 from .models import PipelineExecution, TaskExecution
 
@@ -40,4 +41,5 @@ def create_execution(pipeline: Pipeline) -> PipelineExecution:
         ]
         TaskExecution.objects.bulk_create(task_executions)
 
-        return execution
+    send_pipeline_list_update(execution)
+    return execution

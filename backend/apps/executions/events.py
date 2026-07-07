@@ -37,7 +37,7 @@ def _group_name(execution_id: Any) -> str:
 
 from django.db import transaction
 
-def _send(group_name: str, payload: dict) -> None:
+def _send(group_name: str, payload: dict, event_type: str = "execution.update") -> None:
     """
     Synchronous wrapper around channel_layer.group_send.
     Uses transaction.on_commit to ensure events are only sent AFTER the
@@ -57,8 +57,7 @@ def _send(group_name: str, payload: dict) -> None:
                 group_name,
                 {
                     # "type" here is the Channels dispatcher method name on the consumer.
-                    # "execution.update" → ExecutionConsumer.execution_update()
-                    "type": "execution.update",
+                    "type": event_type,
                     "payload": payload,
                 },
             )
@@ -154,3 +153,25 @@ def send_execution_update(execution: PipelineExecution) -> None:
         )
     except Exception as exc:
         logger.error(f"send_execution_update failed: {exc}")
+
+
+def send_pipeline_list_update(execution: PipelineExecution) -> None:
+    """
+    Emit a pipeline_update event to the global pipelines dashboard.
+    """
+    try:
+        payload: dict[str, Any] = {
+            "type": "pipeline_update",
+            "pipelineId": str(execution.pipeline_id),
+            "latestExecution": {
+                "id": str(execution.id),
+                "status": execution.status,
+            }
+        }
+        
+        _send("pipelines", payload, event_type="pipeline.update")
+        logger.debug(
+            f"[WS] pipeline_update sent | pipeline={execution.pipeline_id} exec={execution.id} status={execution.status}"
+        )
+    except Exception as exc:
+        logger.error(f"send_pipeline_list_update failed: {exc}")

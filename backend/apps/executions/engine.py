@@ -163,3 +163,5 @@ def finalize_execution(execution_id: uuid.UUID) -> None:
 
     # Emit final pipeline state to all connected clients
     send_execution_update(execution)
+    from apps.executions.events import send_pipeline_list_update
+    send_pipeline_list_update(execution)

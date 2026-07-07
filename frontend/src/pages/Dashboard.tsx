@@ -1,13 +1,15 @@
 import { usePipelines } from "@/hooks/usePipelines";
+import { usePipelineWS } from "@/hooks/usePipelineWS";
 import Layout from "@/components/layout/Layout";
 import PipelineCard from "@/components/pipeline/PipelineCard";
 import { PipelineCardSkeleton } from "@/components/ui/Skeleton";
 import { Link } from "react-router-dom";
-import { Activity, PlayCircle, CheckCircle2, XCircle } from "lucide-react";
+import { Activity, PlayCircle, CheckCircle2, XCircle, Wifi } from "lucide-react";
 import Button from "@/components/ui/Button";
 
 export default function Dashboard() {
   const { data: pipelines, isLoading, isError, error } = usePipelines();
+  const { isConnected } = usePipelineWS();
 
   const stats = {
     total: pipelines?.length || 0,
@@ -70,7 +72,15 @@ export default function Dashboard() {
         {/* Pipelines Grid */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white tracking-tight">Your Pipelines</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-white tracking-tight">Your Pipelines</h2>
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-900 rounded-full border border-gray-800">
+                <Wifi className={`w-3.5 h-3.5 ${isConnected ? 'text-green-500' : 'text-gray-500'}`} />
+                <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                  {isConnected ? 'Live' : 'Connecting'}
+                </span>
+              </div>
+            </div>
           </div>
 
           {isLoading ? (

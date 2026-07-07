@@ -54,3 +54,35 @@ class ExecutionConsumer(AsyncJsonWebsocketConsumer):
         Called by channel_layer.group_send(..., {"type": "execution.update", "payload": {...}})
         """
         await self.send_json(event["payload"])
+
+
+class PipelineConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Subscribes a WebSocket client to global pipeline list updates (for the dashboard).
+    """
+
+    async def connect(self) -> None:
+        self.group_name = "pipelines"
+
+        # Join the global pipelines Redis channel group
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+        logger.info(f"[WS] Client connected | group={self.group_name}")
+
+    async def disconnect(self, close_code: int) -> None:
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        logger.info(f"[WS] Client disconnected | group={self.group_name} code={close_code}")
+
+    async def receive_json(self, content: Any, **kwargs: Any) -> None:
+        """
+        Server-push only — we deliberately ignore any client messages.
+        """
+        pass
+
+    async def pipeline_update(self, event: dict[str, Any]) -> None:
+        """
+        Handles channel-layer messages of type "pipeline.update".
+        The 'payload' key holds the frontend-facing JSON object.
+        """
+        await self.send_json(event["payload"])

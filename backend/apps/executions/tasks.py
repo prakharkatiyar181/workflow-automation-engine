@@ -18,7 +18,7 @@ from apps.executions.engine import (
     finalize_execution,
     propagate_failure_to_downstream,
 )
-from apps.executions.events import send_execution_update, send_task_update
+from apps.executions.events import send_execution_update, send_task_update, send_pipeline_list_update
 from apps.executions.models import PipelineExecution, TaskExecution
 from apps.executions.runners.simulated import SimulatedTaskRunner
 from apps.pipelines.models import TaskDependency
@@ -199,6 +199,7 @@ def dispatch_pipeline_execution(execution_id: uuid.UUID) -> None:
 
     # Emit WebSocket event: pipeline is now RUNNING
     send_execution_update(execution)
+    send_pipeline_list_update(execution)
 
     # Calculate waves (returns list of lists of TaskExecution UUIDs)
     waves = calculate_waves(execution)
