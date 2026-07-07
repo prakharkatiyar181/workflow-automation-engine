@@ -18,6 +18,13 @@ interface WsPipelineUpdateEvent {
   };
 }
 
+interface WsPipelineCreatedEvent {
+  type: "pipeline_created";
+  pipeline: Pipeline;
+}
+
+type WsPipelineEvent = WsPipelineUpdateEvent | WsPipelineCreatedEvent;
+
 export function usePipelineWS() {
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
@@ -46,15 +53,17 @@ export function usePipelineWS() {
       };
 
       ws.onmessage = (event: MessageEvent) => {
-        let msg: WsPipelineUpdateEvent;
+        let msg: WsPipelineEvent;
         try {
-          msg = JSON.parse(event.data as string) as WsPipelineUpdateEvent;
+          msg = JSON.parse(event.data as string) as WsPipelineEvent;
         } catch {
           return;
         }
 
         if (msg.type === "pipeline_update") {
           handlePipelineUpdate(msg);
+        } else if (msg.type === "pipeline_created") {
+          handlePipelineCreated(msg);
         }
       };
 
@@ -90,6 +99,21 @@ export function usePipelineWS() {
             }
             return p;
           });
+        }
+      );
+    }
+
+    function handlePipelineCreated(event: WsPipelineCreatedEvent) {
+      queryClient.setQueryData<Pipeline[]>(
+        PIPELINES_QUERY_KEY,
+        (prev) => {
+          if (!prev) return [event.pipeline];
+          
+          // Check if it already exists (e.g. from a recent mutation that already updated cache)
+          const exists = prev.some((p) => p.id === event.pipeline.id);
+          if (exists) return prev;
+
+          return [event.pipeline, ...prev];
         }
       );
     }

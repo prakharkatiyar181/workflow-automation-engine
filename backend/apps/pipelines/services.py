@@ -14,6 +14,7 @@ from django.db import transaction
 
 from .models import Pipeline, PipelineTask, TaskDependency
 from .validators import validate_dag
+from apps.executions.events import send_pipeline_created
 
 
 def create_pipeline(validated_data: dict[str, Any]) -> Pipeline:
@@ -79,4 +80,5 @@ def create_pipeline(validated_data: dict[str, Any]) -> Pipeline:
         if dependency_objs:
             TaskDependency.objects.bulk_create(dependency_objs)
 
+        send_pipeline_created(pipeline)
         return pipeline

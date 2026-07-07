@@ -175,3 +175,27 @@ def send_pipeline_list_update(execution: PipelineExecution) -> None:
         )
     except Exception as exc:
         logger.error(f"send_pipeline_list_update failed: {exc}")
+
+
+def send_pipeline_created(pipeline) -> None:
+    """
+    Emit a pipeline_created event to the global pipelines dashboard.
+    """
+    try:
+        payload: dict[str, Any] = {
+            "type": "pipeline_created",
+            "pipeline": {
+                "id": str(pipeline.id),
+                "name": pipeline.name,
+                "description": pipeline.description,
+                "task_count": pipeline.tasks.count(),
+                "latest_execution": None,
+            }
+        }
+        
+        _send("pipelines", payload, event_type="pipeline.update")
+        logger.debug(
+            f"[WS] pipeline_created sent | pipeline={pipeline.id}"
+        )
+    except Exception as exc:
+        logger.error(f"send_pipeline_created failed: {exc}")
