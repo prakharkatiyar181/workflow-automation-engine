@@ -29,7 +29,6 @@ export function useExecutionWS(executionId: string) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log("WS connected");
         setIsConnected(true);
         setIsReconnecting(false);
         // Clear any pending reconnect timer on successful connect
@@ -40,7 +39,6 @@ export function useExecutionWS(executionId: string) {
       };
 
       ws.onmessage = (event: MessageEvent) => {
-        console.log("WS message", event.data);
         let msg: WsEvent;
         try {
           msg = JSON.parse(event.data as string) as WsEvent;
@@ -56,12 +54,10 @@ export function useExecutionWS(executionId: string) {
       };
 
       ws.onerror = (e) => {
-        console.error("WS error", e);
         // onerror is always followed by onclose; reconnect logic lives there
       };
 
       ws.onclose = () => {
-        console.log("WS closed");
         setIsConnected(false);
         wsRef.current = null;
         if (!isMounted.current) return;
