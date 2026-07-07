@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useExecution } from "@/hooks/useExecution";
 import { usePipeline } from "@/hooks/usePipelines";
 import { useExecutionWS } from "@/hooks/useExecutionWS";
@@ -7,11 +7,12 @@ import DAGCanvas from "@/components/dag/DAGCanvas";
 import Badge from "@/components/ui/Badge";
 import { type Edge } from "reactflow";
 import { useMemo } from "react";
-import { Wifi, WifiOff, Loader2 } from "lucide-react";
+import { Wifi, WifiOff, Loader2, ChevronLeft } from "lucide-react";
 import clsx from "clsx";
 
 export default function ExecutionDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   // Fetch execution details and enable WebSocket updates
   const { data: execution, isLoading: execLoading, isError: execError } = useExecution(id!);
@@ -93,9 +94,9 @@ export default function ExecutionDetail() {
           <WifiOff className="w-10 h-10 text-red-500 mx-auto mb-4" />
           <p className="text-red-400 font-semibold text-lg">Unable to connect to workflow server</p>
           <p className="text-red-300/80 text-sm mt-1">Pipeline execution failed to load or the backend is offline.</p>
-          <Link to="/" className="text-blue-400 hover:underline text-sm mt-4 inline-block">
+          <button onClick={() => navigate("/")} className="text-blue-400 hover:underline text-sm mt-4 inline-block">
             Return to Dashboard
-          </Link>
+          </button>
         </div>
       </Layout>
     );
@@ -128,6 +129,14 @@ export default function ExecutionDetail() {
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-8rem)] animate-in fade-in duration-500">
+        {/* Back */}
+        <button
+          onClick={() => navigate("/")}
+          className="inline-flex items-center self-start gap-1.5 text-sm text-gray-500 hover:text-gray-300 transition-colors mb-4"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Pipelines
+        </button>
+
         {/* Header */}
         <div className="flex items-start justify-between mb-4 shrink-0 bg-gray-900/50 p-4 rounded-xl border border-gray-800 backdrop-blur-sm">
           <div className="space-y-2 flex-1">

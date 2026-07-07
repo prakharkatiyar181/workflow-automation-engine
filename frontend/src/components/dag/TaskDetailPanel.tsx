@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { TaskExecution } from "@/types/execution";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -27,6 +28,16 @@ function formatTs(ts: string | null): string {
 }
 
 export default function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <aside className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-800 flex flex-col z-10 overflow-auto shadow-2xl animate-in slide-in-from-right-10 duration-300">
       {/* Header */}

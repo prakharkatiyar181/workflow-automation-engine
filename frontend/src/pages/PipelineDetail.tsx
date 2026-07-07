@@ -51,7 +51,7 @@ export default function PipelineDetail() {
           to="/"
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-300 transition-colors"
         >
-          <ChevronLeft className="w-4 h-4" /> Back to Dashboard
+          <ChevronLeft className="w-4 h-4" /> Back to Pipelines
         </Link>
 
         {/* Header */}

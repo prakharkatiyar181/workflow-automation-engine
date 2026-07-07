@@ -7,7 +7,7 @@ import TextArea from "@/components/ui/TextArea";
 import Select from "@/components/ui/Select";
 import NumberInput from "@/components/ui/NumberInput";
 import type { CreatePipelinePayload } from "@/types/pipeline";
-import { Trash2, ArrowDown, Plus } from "lucide-react";
+import { Trash2, ArrowDown, Plus, ChevronLeft } from "lucide-react";
 import LiveDAGPreview from "./LiveDAGPreview";
 
 interface TaskField {
@@ -106,6 +106,22 @@ export default function PipelineForm() {
     return Object.keys(errs).length === 0;
   };
 
+  const handleCancel = () => {
+    const isDirty =
+      name.trim() !== "" ||
+      description.trim() !== "" ||
+      tasks.some((t) => t.name.trim() !== "") ||
+      dependencies.length > 0;
+
+    if (isDirty) {
+      if (window.confirm("Discard unsaved pipeline?")) {
+        navigate("/");
+      }
+    } else {
+      navigate("/");
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
@@ -130,11 +146,26 @@ export default function PipelineForm() {
   const taskNameOptions = tasks.map((t) => t.name.trim()).filter(Boolean);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-500">
-      {/* Left Column: Form */}
-      <form onSubmit={handleSubmit} className="lg:col-span-7 xl:col-span-8 space-y-8">
-        
-        {/* Pipeline Details */}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="inline-flex items-center self-start gap-1.5 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Dashboard
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Create Pipeline</h1>
+          <p className="text-sm text-gray-400 mt-1">Design a new workflow DAG</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-500">
+        {/* Left Column: Form */}
+        <form onSubmit={handleSubmit} className="lg:col-span-7 xl:col-span-8 space-y-8">
+          
+          {/* Pipeline Details */}
         <section className="card p-6 space-y-5 shadow-lg">
           <div>
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">Pipeline Details</h2>
@@ -307,7 +338,7 @@ export default function PipelineForm() {
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 pt-6 pb-12">
-          <Button type="button" variant="ghost" onClick={() => navigate("/")}>
+          <Button type="button" variant="ghost" onClick={handleCancel}>
             Cancel
           </Button>
           <Button type="submit" loading={isPending} size="lg">
@@ -327,6 +358,7 @@ export default function PipelineForm() {
             <LiveDAGPreview tasks={tasks} dependencies={dependencies} />
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
