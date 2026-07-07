@@ -9,19 +9,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses = {
   primary:
-    "bg-blue-600 hover:bg-blue-500 text-white border-transparent shadow-sm shadow-blue-900/30",
+    "bg-blue-600 hover:bg-blue-500 text-white border-transparent shadow-md shadow-blue-900/20 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-gray-950",
   secondary:
-    "bg-gray-800 hover:bg-gray-700 text-gray-200 border-gray-700 hover:border-gray-600",
+    "bg-gray-800 hover:bg-gray-700 text-gray-200 border-gray-700 hover:border-gray-600 shadow-sm focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 focus:ring-offset-gray-950",
   danger:
-    "bg-red-600/20 hover:bg-red-600/30 text-red-400 border-red-500/30 hover:border-red-500/60",
+    "bg-red-600/20 hover:bg-red-600/30 text-red-400 border-red-500/30 hover:border-red-500/60 focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2 focus:ring-offset-gray-950",
   ghost:
-    "bg-transparent hover:bg-gray-800/60 text-gray-400 hover:text-gray-200 border-transparent",
+    "bg-transparent hover:bg-gray-800/60 text-gray-400 hover:text-gray-200 border-transparent focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 focus:ring-offset-gray-950",
 };
 
 const sizeClasses = {
-  sm: "px-3 py-1.5 text-xs rounded-md gap-1.5",
-  md: "px-4 py-2 text-sm rounded-lg gap-2",
-  lg: "px-5 py-2.5 text-base rounded-xl gap-2.5",
+  sm: "px-3 py-1.5 text-xs rounded-lg gap-1.5",
+  md: "px-4 py-2.5 text-sm rounded-xl gap-2",
+  lg: "px-5 py-3 text-base rounded-xl gap-2.5",
 };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(

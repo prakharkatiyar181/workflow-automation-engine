@@ -4,6 +4,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { useExecutePipeline } from "@/hooks/usePipelines";
 import { clsx } from "clsx";
+import { Play, Activity, Clock, ChevronRight } from "lucide-react";
 
 interface PipelineCardProps {
   pipeline: Pipeline;
@@ -18,68 +19,79 @@ export default function PipelineCard({ pipeline }: PipelineCardProps) {
   return (
     <div
       className={clsx(
-        "card p-5 flex flex-col gap-4 transition-all duration-200",
-        "hover:border-gray-700 hover:shadow-lg hover:shadow-black/20 group"
+        "card flex flex-col transition-all duration-300",
+        "hover:border-gray-600 hover:shadow-xl hover:shadow-black/40 group overflow-hidden bg-gray-900/40 relative"
       )}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3
-            className="text-sm font-semibold text-white truncate group-hover:text-blue-300 transition-colors cursor-pointer"
-            onClick={() =>
-              pipeline.latest_execution &&
-              navigate(`/executions/${pipeline.latest_execution.id}`)
-            }
-          >
-            {pipeline.name}
-          </h3>
-          {pipeline.description && (
-            <p className="text-xs text-gray-500 mt-0.5 truncate">{pipeline.description}</p>
-          )}
+      {/* Decorative top border based on status */}
+      <div className={clsx(
+        "absolute top-0 left-0 w-full h-1",
+        latestStatus === "RUNNING" ? "bg-blue-500" :
+        latestStatus === "COMPLETED" ? "bg-emerald-500" :
+        latestStatus === "FAILED" ? "bg-red-500" :
+        "bg-gray-700"
+      )} />
+
+      <div className="p-6 flex flex-col h-full gap-5">
+        
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3
+              className="text-lg font-bold text-white truncate group-hover:text-blue-400 transition-colors cursor-pointer"
+              onClick={() => navigate(`/executions/${pipeline.latest_execution?.id || ''}`)}
+              title={pipeline.name}
+            >
+              {pipeline.name}
+            </h3>
+            {pipeline.description ? (
+              <p className="text-sm text-gray-500 mt-1 line-clamp-2 leading-relaxed">{pipeline.description}</p>
+            ) : (
+              <p className="text-sm text-gray-600 italic mt-1">No description provided.</p>
+            )}
+          </div>
+          {latestStatus && <Badge status={latestStatus} className="shrink-0" />}
         </div>
-        {latestStatus && <Badge status={latestStatus} />}
+
+        <div className="flex-1" />
+
+        {/* Meta Info */}
+        <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
+          <span className="flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-md border border-gray-700/50">
+            <Activity className="w-3.5 h-3.5 text-gray-400" />
+            {pipeline.task_count} {pipeline.task_count === 1 ? "task" : "tasks"}
+          </span>
+          <span className="flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-md border border-gray-700/50">
+            <Clock className="w-3.5 h-3.5 text-gray-400" />
+            {new Date(pipeline.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        </div>
       </div>
 
-      {/* Meta */}
-      <div className="flex items-center gap-3 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-          </svg>
-          {pipeline.task_count} {pipeline.task_count === 1 ? "task" : "tasks"}
-        </span>
-        <span>·</span>
-        <span>
-          Created{" "}
-          {new Date(pipeline.created_at).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          })}
-        </span>
-      </div>
-
-      {/* Action */}
-      <div className="flex items-center justify-between pt-1">
+      {/* Action Footer */}
+      <div className="bg-gray-950/50 px-6 py-4 border-t border-gray-800 flex items-center justify-between">
         {pipeline.latest_execution ? (
           <button
-            className="text-xs text-gray-500 hover:text-blue-400 transition-colors"
+            className="text-xs font-semibold text-gray-400 hover:text-blue-400 transition-colors flex items-center gap-1 group/btn"
             onClick={() => navigate(`/executions/${pipeline.latest_execution!.id}`)}
           >
-            View last run →
+            View last run
+            <ChevronRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
           </button>
         ) : (
-          <span className="text-xs text-gray-600">No executions yet</span>
+          <span className="text-xs font-medium text-gray-600">No executions yet</span>
         )}
         <Button
           size="sm"
+          variant="primary"
           loading={isPending}
           onClick={() => execute(pipeline.id)}
+          className="shadow-blue-500/20"
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-6.586-3.77A1 1 0 006 8.232v7.536a1 1 0 001.166.98l6.586-1.51A1 1 0 0015 14.31v-2.376a1 1 0 00-.248-.766z" />
-          </svg>
+          <Play className="w-3.5 h-3.5 fill-current" />
           Run
         </Button>
       </div>

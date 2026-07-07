@@ -17,7 +17,18 @@ def health_check(request):
     return JsonResponse({"status": "ok", "service": "workflow-engine"})
 
 
+def root_view(request):
+    return JsonResponse({
+        "name": "Workflow Automation Engine",
+        "status": "running",
+        "docs": "/api/"
+    })
+
+
 urlpatterns = [
+    # Root info endpoint
+    path("", root_view, name="root"),
+
     # Health probe — no authentication required
     path("api/health/", health_check, name="health-check"),
 
