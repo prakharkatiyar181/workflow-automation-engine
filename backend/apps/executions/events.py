@@ -52,6 +52,7 @@ def _send(group_name: str, payload: dict) -> None:
                 logger.warning("Channel layer not configured; skipping WebSocket event.")
                 return
 
+            logger.debug(f"[WS] do_send executing for group: {group_name}")
             async_to_sync(channel_layer.group_send)(
                 group_name,
                 {

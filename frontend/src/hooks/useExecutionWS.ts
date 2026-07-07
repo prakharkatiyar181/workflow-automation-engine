@@ -6,7 +6,7 @@ import { PIPELINES_QUERY_KEY } from "./usePipelines";
 
 const WS_BASE = import.meta.env.VITE_WS_URL 
   ? `${import.meta.env.VITE_WS_URL}/ws/executions` 
-  : `ws://${window.location.host}/ws/executions`;
+  : `ws://${window.location.hostname}:8000/ws/executions`;
 const RECONNECT_DELAY_MS = 3_000;
 const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED"]);
 
@@ -29,6 +29,7 @@ export function useExecutionWS(executionId: string) {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        console.log("WS connected");
         setIsConnected(true);
         setIsReconnecting(false);
         // Clear any pending reconnect timer on successful connect
@@ -39,6 +40,7 @@ export function useExecutionWS(executionId: string) {
       };
 
       ws.onmessage = (event: MessageEvent) => {
+        console.log("WS message", event.data);
         let msg: WsEvent;
         try {
           msg = JSON.parse(event.data as string) as WsEvent;
@@ -53,11 +55,13 @@ export function useExecutionWS(executionId: string) {
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (e) => {
+        console.error("WS error", e);
         // onerror is always followed by onclose; reconnect logic lives there
       };
 
       ws.onclose = () => {
+        console.log("WS closed");
         setIsConnected(false);
         wsRef.current = null;
         if (!isMounted.current) return;
