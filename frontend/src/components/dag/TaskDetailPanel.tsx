@@ -39,12 +39,12 @@ export default function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps)
   }, [onClose]);
 
   return (
-    <aside className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-800 flex flex-col z-10 overflow-auto shadow-2xl animate-in slide-in-from-right-10 duration-300">
+    <aside className="absolute bottom-0 right-0 md:top-0 w-full md:w-80 max-h-[60%] md:max-h-none md:h-full bg-gray-900 md:border-l border-t md:border-t-0 border-gray-800 flex flex-col z-10 overflow-auto shadow-2xl animate-in slide-in-from-bottom-10 md:slide-in-from-right-10 duration-300">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 bg-gray-900/95 sticky top-0 backdrop-blur">
-        <h3 className="text-sm font-bold text-white truncate flex items-center gap-2">
-          <FileText className="w-4 h-4 text-blue-400" />
-          {task.name ?? "Task Details"}
+        <h3 className="text-sm font-bold text-white truncate flex items-center gap-2 min-w-0">
+          <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+          <span className="truncate">{task.name ?? "Task Details"}</span>
         </h3>
         <Button variant="ghost" size="sm" onClick={onClose} className="shrink-0 p-1.5 h-auto text-gray-400 hover:text-white">
           <X className="w-4 h-4" />
@@ -57,14 +57,14 @@ export default function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps)
         <section className="space-y-3">
           <h4 className="text-[10px] font-bold tracking-wider text-gray-500 uppercase">Task Information</h4>
           <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-200">{task.name}</p>
+            <p className="text-sm font-medium text-gray-200 break-words">{task.name}</p>
             <p className="text-xs text-gray-500">
               No description provided.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
-            <Hash className="w-3.5 h-3.5" />
-            <span className="font-mono">{task.id}</span>
+          <div className="flex items-center gap-2 text-xs text-gray-500 mt-2 min-w-0">
+            <Hash className="w-3.5 h-3.5 shrink-0" />
+            <span className="font-mono truncate">{task.id}</span>
           </div>
         </section>
 

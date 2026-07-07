@@ -128,7 +128,7 @@ export default function ExecutionDetail() {
 
   return (
     <Layout>
-      <div className="flex flex-col h-[calc(100vh-8rem)] animate-in fade-in duration-500">
+      <div className="flex flex-col h-[calc(100vh-8rem)] min-h-[500px] animate-in fade-in duration-500">
         {/* Back */}
         <button
           onClick={() => navigate("/")}
@@ -138,21 +138,21 @@ export default function ExecutionDetail() {
         </button>
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-4 shrink-0 bg-gray-900/50 p-4 rounded-xl border border-gray-800 backdrop-blur-sm">
-          <div className="space-y-2 flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white tracking-tight">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4 shrink-0 bg-gray-900/50 p-4 rounded-xl border border-gray-800 backdrop-blur-sm w-full overflow-hidden">
+          <div className="space-y-2 flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-white tracking-tight truncate">
                 {execution.pipeline_name}
               </h1>
               <Badge status={execution.status} />
               {ConnectionIndicator}
             </div>
             
-            <div className="flex items-center gap-4 text-xs text-gray-400">
-              <span className="font-mono bg-gray-800 px-2 py-0.5 rounded text-gray-400">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-gray-400">
+              <span className="font-mono bg-gray-800 px-2 py-0.5 rounded text-gray-400 truncate max-w-full inline-block">
                 ID: {execution.id}
               </span>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 <div>
                   <span className="text-gray-500 mr-1">Started:</span>
                   <span className="font-mono text-gray-300">
@@ -170,7 +170,7 @@ export default function ExecutionDetail() {
           </div>
 
           {/* Progress Bar */}
-          <div className="w-64 space-y-2 ml-4">
+          <div className="w-full md:w-64 space-y-2 md:ml-4 shrink-0">
             <div className="flex justify-between text-xs font-semibold">
               <span className="text-gray-400">Pipeline Progress</span>
               <span className="text-blue-400">{progress.completed} / {progress.total} Tasks</span>
@@ -192,7 +192,7 @@ export default function ExecutionDetail() {
         </div>
 
         {/* DAG Canvas */}
-        <div className="flex-1 rounded-xl border border-gray-800 overflow-hidden relative shadow-xl">
+        <div className="flex-1 rounded-xl border border-gray-800 relative shadow-xl w-full overflow-hidden min-h-[400px]">
           <DAGCanvas execution={execution} edges={edges} />
         </div>
       </div>
