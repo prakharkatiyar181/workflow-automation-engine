@@ -1,203 +1,378 @@
 # Workflow Automation Engine
 
-A production-quality DAG pipeline executor inspired by Airflow / GitHub Actions.
+A production-quality DAG-based workflow automation system inspired by Apache Airflow and GitHub Actions.
 
-## Stack
+Users can create pipelines, define task dependencies, execute workflows, and monitor execution progress in real time.
+
+---
+
+## Features
+
+- Visual pipeline creation with task dependency management
+- Directed Acyclic Graph (DAG) validation
+- Cycle and invalid dependency detection
+- Dependency-aware task scheduling
+- Parallel execution of independent tasks
+- Asynchronous execution using Celery workers
+- Real-time task status updates using WebSockets
+- Interactive DAG visualization using React Flow
+- Execution inspection with:
+  - task status
+  - start time
+  - completion time
+  - duration
+  - error details
+- Failure propagation with downstream task skipping
+- Responsive UI for desktop, tablet, and mobile
+- Loading, empty, and error states
+- Single-command Docker-based setup
+
+---
+
+# Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Backend | Django + DRF + Django Channels (Daphne) |
-| Workers | Celery + Redis |
+| Frontend | React + TypeScript + Vite |
+| UI | TailwindCSS + React Flow |
+| State | React Query |
+| Backend | Django + Django REST Framework |
+| Real-time | Django Channels + WebSockets |
+| Worker | Celery |
+| Broker | Redis |
 | Database | PostgreSQL |
-| Frontend | React + Vite + TypeScript + React Flow |
-| Dev | Docker Compose |
+| Deployment | Docker Compose |
 
-## Quick Start
+---
+
+# Quick Start
+
+The entire system runs locally using one command.
 
 ```bash
-# One command — starts all 5 services
 docker compose up --build
 ```
 
+Services:
+
 | Service | URL |
-|---|---|
-| React UI | http://localhost:5173 |
-| Django API | http://localhost:8000/api/ |
-| Django Admin | http://localhost:8000/admin/ |
-| Health check | http://localhost:8000/api/health/ |
+|-|-|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000/api/ |
+| Admin | http://localhost:8000/admin/ |
+| Health Check | http://localhost:8000/api/health/ |
+
+No manual package installation is required.
 
 ---
 
-## REST API Reference
+# System Architecture
 
-### 1. Create a Pipeline
-
-**POST** `/api/pipelines/`
-
-Tasks and dependencies are defined by **name** in a single atomic request.
-The server validates DAG correctness (no cycles, no self-loops) before saving anything.
-
-```bash
-curl -s -X POST http://localhost:8000/api/pipelines/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Genome Analysis Pipeline",
-    "description": "Demo four-task DAG",
-    "tasks": [
-      {"name": "A: Upload Data",    "estimated_duration": 5,  "failure_probability": 0.0},
-      {"name": "B: Process Data",   "estimated_duration": 10, "failure_probability": 0.1},
-      {"name": "C: Validate Data",  "estimated_duration": 8,  "failure_probability": 0.0},
-      {"name": "D: Generate Report","estimated_duration": 6,  "failure_probability": 0.0}
-    ],
-    "dependencies": [
-      {"task": "B: Process Data",    "depends_on": "A: Upload Data"},
-      {"task": "C: Validate Data",   "depends_on": "A: Upload Data"},
-      {"task": "D: Generate Report", "depends_on": "B: Process Data"},
-      {"task": "D: Generate Report", "depends_on": "C: Validate Data"}
-    ]
-  }' | python -m json.tool
 ```
+                 React UI
+                    |
+                    |
+              Django REST API
+                    |
+          ----------------------
+          |                    |
+     PostgreSQL              Redis
+          |                    |
+          |                    |
+       Celery Worker <---------
+          |
+          |
+    DAG Execution Engine
 
-**Expected:** `201 Created` with the full pipeline DAG.
+
+Real-time:
+
+Celery
+  |
+  |
+Django Channels
+  |
+  |
+WebSocket
+  |
+  |
+React Query Cache
+```
 
 ---
 
-### 2. Cycle Detection — Should Fail
+# Pipeline Model
 
-```bash
-curl -s -X POST http://localhost:8000/api/pipelines/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Circular Pipeline",
-    "tasks": [
-      {"name": "A", "estimated_duration": 5},
-      {"name": "B", "estimated_duration": 5}
-    ],
-    "dependencies": [
-      {"task": "B", "depends_on": "A"},
-      {"task": "A", "depends_on": "B"}
-    ]
-  }' | python -m json.tool
+A pipeline consists of tasks connected through dependencies.
+
+Example:
+
+```
+        Upload Data
+
+        /       \
+
+ Process Data   Validate Data
+
+        \       /
+
+       Generate Report
 ```
 
-**Expected:** `400 Bad Request`
+Independent branches execute concurrently.
+
+---
+
+# Execution Engine
+
+The scheduler uses topological sorting (Kahn's Algorithm).
+
+Tasks are grouped into execution waves.
+
+Example DAG:
+
+```
+        A
+
+      /   \
+
+     B     C
+
+      \   /
+
+        D
+```
+
+Execution:
+
+```
+Wave 1:
+
+A
+
+
+Wave 2:
+
+B + C
+
+
+Wave 3:
+
+D
+```
+
+Each wave is dispatched asynchronously using Celery.
+
+---
+
+# Failure Handling
+
+Task failures are handled explicitly.
+
+Example:
+
+```
+A
+|
+B (fails)
+|
+C
+```
+
+Result:
+
+```
+A → COMPLETED
+
+B → FAILED
+
+C → SKIPPED
+
+Pipeline → FAILED
+```
+
+Failures:
+
+- store error details
+- prevent invalid downstream execution
+- keep pipeline state consistent
+
+---
+
+# Real-Time Updates
+
+Execution monitoring is powered by Django Channels.
+
+Flow:
+
+```
+Celery Task Executes
+
+        |
+
+Update Database
+
+        |
+
+Send WebSocket Event
+
+        |
+
+React receives update
+
+        |
+
+React Query cache updates
+
+        |
+
+UI refreshes automatically
+```
+
+No polling is used.
+
+Users can watch:
+
+- task starting
+- task completion
+- task failure
+- pipeline completion
+
+without refreshing the browser.
+
+---
+
+# Frontend
+
+The frontend provides:
+
+## Dashboard
+
+- Pipeline list
+- Current execution status
+- Run pipeline action
+- Real-time status updates
+
+
+## Pipeline Builder
+
+Supports:
+
+- adding tasks
+- configuring duration
+- configuring failure probability
+- creating dependencies
+- validation feedback
+
+
+## Execution View
+
+Shows:
+
+- live DAG graph
+- task state changes
+- execution progress
+- timestamps
+- duration
+- errors
+
+---
+
+# API Reference
+
+## Create Pipeline
+
+```http
+POST /api/pipelines/
+```
+
+Example:
+
 ```json
-{"error": "Pipeline contains a circular dependency"}
+{
+  "name": "Genome Pipeline",
+
+  "tasks": [
+    {
+      "name": "Upload",
+      "estimated_duration": 5
+    },
+    {
+      "name": "Process",
+      "estimated_duration": 10
+    }
+  ],
+
+  "dependencies": [
+    {
+      "task": "Process",
+      "depends_on": "Upload"
+    }
+  ]
+}
 ```
 
 ---
 
-### 3. List Pipelines
+## List Pipelines
 
-**GET** `/api/pipelines/`
-
-```bash
-curl -s http://localhost:8000/api/pipelines/ | python -m json.tool
+```http
+GET /api/pipelines/
 ```
 
-**Response shape:**
+Returns:
+
 ```json
 [
   {
-    "id": "<uuid>",
-    "name": "Genome Analysis Pipeline",
-    "description": "...",
+    "id": "uuid",
+    "name": "Pipeline",
     "task_count": 4,
     "latest_execution": {
-      "id": "<uuid>",
       "status": "COMPLETED"
-    },
-    "created_at": "2024-01-01T00:00:00Z"
+    }
   }
 ]
 ```
 
 ---
 
-### 4. Get Pipeline DAG Detail
+## Execute Pipeline
 
-**GET** `/api/pipelines/{id}/`
-
-```bash
-curl -s http://localhost:8000/api/pipelines/<uuid>/ | python -m json.tool
+```http
+POST /api/pipelines/{id}/execute/
 ```
 
-**Response shape:**
+Returns:
+
 ```json
 {
-  "id": "<uuid>",
-  "name": "Genome Analysis Pipeline",
-  "tasks": [
-    {"id": "<uuid>", "name": "A: Upload Data", "estimated_duration": 5, ...}
-  ],
-  "dependencies": [
-    {"from": "<uuid-of-A>", "to": "<uuid-of-B>"}
-  ]
-}
-```
-
-> `from` = upstream prerequisite, `to` = blocked downstream task.
-> This format is consumed directly by React Flow for graph rendering.
-
----
-
-### 5. Execute a Pipeline
-
-**POST** `/api/pipelines/{id}/execute/`
-
-```bash
-curl -s -X POST http://localhost:8000/api/pipelines/<uuid>/execute/ \
-  -H "Content-Type: application/json" | python -m json.tool
-```
-
-**Response shape:**
-```json
-{
-  "execution_id": "<uuid>",
+  "execution_id": "uuid",
   "status": "QUEUED"
 }
 ```
 
-> Creates a `QUEUED` PipelineExecution with one `PENDING` TaskExecution per task.
-> The Celery engine (Phase 4) picks it up and transitions states automatically.
-
 ---
 
-### 6. Get Execution Status
+## Inspect Execution
 
-**GET** `/api/executions/{id}/`
-
-```bash
-curl -s http://localhost:8000/api/executions/<execution-uuid>/ | python -m json.tool
+```http
+GET /api/executions/{id}/
 ```
 
-**Response shape:**
+Returns:
+
 ```json
 {
-  "id": "<uuid>",
   "status": "RUNNING",
-  "pipeline_id": "<uuid>",
-  "pipeline_name": "Genome Analysis Pipeline",
-  "started_at": "2024-01-01T00:01:00Z",
-  "completed_at": null,
-  "created_at": "2024-01-01T00:00:00Z",
+
   "tasks": [
     {
-      "id": "<uuid>",
-      "name": "A: Upload Data",
+      "name": "Upload",
       "status": "COMPLETED",
-      "started_at": "2024-01-01T00:01:00Z",
-      "completed_at": "2024-01-01T00:01:05Z",
-      "duration": 5.0,
-      "error_message": null
-    },
-    {
-      "id": "<uuid>",
-      "name": "B: Process Data",
-      "status": "RUNNING",
-      "started_at": "2024-01-01T00:01:05Z",
-      "completed_at": null,
-      "duration": null,
+      "started_at": "...",
+      "completed_at": "...",
+      "duration": 5,
       "error_message": null
     }
   ]
@@ -206,132 +381,260 @@ curl -s http://localhost:8000/api/executions/<execution-uuid>/ | python -m json.
 
 ---
 
-## Architecture
+# Validation
+
+The system prevents invalid DAGs.
+
+Handled cases:
+
+## Circular Dependency
+
+Invalid:
 
 ```
-POST /api/pipelines/         →  PipelineViewSet.create()
-                             →  pipelines/services.py → create_pipeline()
-                             →  pipelines/validators.py → validate_dag() (DFS)
-                             →  DB transaction (Pipeline + Tasks + Dependencies)
-
-POST /api/pipelines/{id}/execute/  →  PipelineViewSet.execute()
-                                   →  executions/services.py → create_execution()
-                                   →  DB transaction (PipelineExecution + TaskExecutions)
-
-GET  /api/executions/{id}/   →  ExecutionDetailView → 3 SQL queries (no N+1)
+A → B
+↑   |
+|___|
 ```
 
-### DAG Cycle Detection
-
-Uses DFS with **WHITE / GRAY / BLACK** node coloring:
-
-- `WHITE` — unvisited
-- `GRAY` — on the current DFS stack (being visited)
-- `BLACK` — fully explored
-
-Encountering a `GRAY` node during traversal means a **back-edge exists → cycle detected**.
+Rejected.
 
 ---
 
-## Development
+## Self Dependency
+
+Invalid:
+
+```
+A → A
+```
+
+Rejected.
+
+---
+
+## Duplicate Dependency
+
+Invalid:
+
+```
+A → B
+
+A → B
+```
+
+Rejected.
+
+---
+
+# Development Commands
+
+
+Run migrations:
 
 ```bash
-# Apply migrations after model changes
-docker compose run --rm backend python manage.py makemigrations
-docker compose run --rm backend python manage.py migrate
+docker compose exec backend python manage.py migrate
+```
 
-# Create a Django superuser for admin access
-docker compose run --rm backend python manage.py createsuperuser
 
-# Tail all service logs
+Create migrations:
+
+```bash
+docker compose exec backend python manage.py makemigrations
+```
+
+
+Backend check:
+
+```bash
+docker compose exec backend python manage.py check
+```
+
+
+Frontend build:
+
+```bash
+docker compose exec frontend npm run build
+```
+
+
+View logs:
+
+```bash
 docker compose logs -f
 ```
 
-## Technical Decisions, Tradeoffs & Production Improvements
-
-The following documents deliberate decisions made during development, their rationale, and the production-grade path forward for each.
-
 ---
 
-### 1. Simulated Task Execution
+# Testing Checklist
 
-**Current implementation:**
-Tasks are executed by `SimulatedTaskRunner`, which sleeps for `estimated_duration` seconds and randomly raises an exception based on `failure_probability`. No real shell commands or external processes are run.
+Tested scenarios:
 
-**Rationale:**
-The assignment focuses on DAG orchestration, scheduling, concurrency, and state management — not on wrapping specific commands. A simulated runner isolates the orchestration logic from environment-specific concerns (OS paths, Docker-in-Docker, credentials).
+- Linear DAG execution
 
-**Production path:**
 ```
-BaseTaskRunner (abstract)
-    ├── SimulatedTaskRunner   ← current
-    ├── ShellCommandRunner    ← run arbitrary shell commands
-    ├── HttpTaskRunner        ← POST to an external webhook/service
-    └── AwsBatchRunner        ← submit jobs to AWS Batch / ECS
+A → B → C
 ```
-The `BaseTaskRunner` interface is already in place. Swapping the runner requires changing a single line in `tasks.py`.
+
+
+- Parallel DAG execution
+
+```
+        A
+
+      /   \
+
+     B     C
+
+      \   /
+
+        D
+```
+
+
+- Independent branches
+
+```
+A → B
+
+
+C → D
+```
+
+
+- Task failure propagation
+
+
+- Browser refresh during execution
+
+
+- Multiple browser windows receiving WebSocket updates
+
+
+- Mobile responsive layouts
+
+
+- Fresh Docker startup
 
 ---
 
-### 2. No Authentication
+# Technical Decisions, Tradeoffs & Future Improvements
 
-**Current implementation:**
-All API endpoints are publicly accessible with no authentication or authorization layer.
 
-**Rationale:**
-The original assignment specification did not require multi-user access or authentication. Adding it would have introduced complexity (token management, middleware, test fixtures) without fulfilling a stated requirement.
+## 1. Simulated Task Execution
 
-**Production path:**
-- JWT authentication via `djangorestframework-simplejwt`
-- Each `Pipeline` and `PipelineExecution` gains a `created_by` FK to `User`
-- Querysets are scoped per user: `Pipeline.objects.filter(created_by=request.user)`
-- RBAC roles: `viewer`, `operator`, `admin`
+Current:
+
+Tasks execute using a simulated runner.
+
+It supports:
+
+- configurable duration
+- configurable failure probability
+
+
+Reason:
+
+The focus of the assessment is:
+
+- orchestration
+- scheduling
+- concurrency
+- state handling
+
+
+Future:
+
+The runner abstraction allows:
+
+```
+BaseTaskRunner
+
+    ├── ShellCommandRunner
+
+    ├── HTTPRunner
+
+    └── AWS Batch Runner
+```
+
+without changing the DAG engine.
 
 ---
 
-### 3. Immutable Pipelines (No Edit/Delete)
+# 2. Authentication
 
-**Current implementation:**
-Pipelines cannot be modified or deleted after creation. There is no `PUT /api/pipelines/{id}/` endpoint.
+Current:
 
-**Rationale:**
-Allowing edits to a pipeline while executions are in progress would corrupt the relationship between `PipelineTask` records and `TaskExecution` records. The data model treats the pipeline definition as the ground truth for any execution derived from it.
+Authentication is intentionally not implemented.
 
-**Production path:**
-Introduce pipeline versioning:
+Reason:
+
+The assignment does not require multi-user behavior.
+
+Future:
+
+Add:
+
+- JWT authentication
+- user-owned pipelines
+- role-based access control
+
+---
+
+# 3. Immutable Pipelines
+
+Current:
+
+Created pipelines cannot be edited.
+
+Reason:
+
+Changing a DAG while executions exist creates consistency issues.
+
+Production approach:
+
 ```
 Pipeline
-  └── PipelineVersion (immutable snapshot per version)
-        └── PipelineExecution (always references a specific version)
+
+    |
+
+Pipeline Version
+
+    |
+
+Execution
 ```
-This allows the pipeline definition to evolve while keeping historical executions reproducible and traceable.
+
+Each execution references a fixed version.
 
 ---
 
-### 4. Execution Recovery on Worker Crash
+# 4. Worker Crash Recovery
 
-**Current limitation:**
-If a Celery worker process crashes while a `chord` is in-flight (e.g., mid-task during a deployment or OOM kill), the `dispatch_next_wave` chord callback is lost. The `PipelineExecution` will remain stuck in `RUNNING` status indefinitely with no automatic recovery.
+Current limitation:
 
-**Rationale:**
-Implementing a robust recovery mechanism requires a periodic background scheduler (Celery Beat), which would add meaningful complexity. This was treated as out of scope for the take-home assessment.
+If a Celery worker crashes during an active task, an execution may remain RUNNING.
 
-The database remains fully consistent — no data is corrupted. Only the in-memory Celery state is lost.
+The database remains consistent, but recovery is manual.
 
-**Production path:**
-```python
-# Celery Beat periodic task (runs every 5 minutes)
-@shared_task
-def reconcile_stuck_executions():
-    cutoff = timezone.now() - timedelta(minutes=15)
-    stuck = PipelineExecution.objects.filter(
-        status=PipelineExecution.Status.RUNNING,
-        started_at__lt=cutoff
-    )
-    for execution in stuck:
-        # Mark as FAILED; send alert
-        execution.status = PipelineExecution.Status.FAILED
-        execution.save()
-        send_execution_update(execution)
-```
-Additional hardening: Celery task `acks_late=True` + idempotency guards ensure tasks are safe to retry after a worker restart.
+Production improvement:
+
+Add:
+
+- Celery Beat reconciliation job
+- execution timeout monitoring
+- worker heartbeat tracking
+- retry policies
+
+---
+
+# Repository Notes
+
+The project contains:
+
+- incremental git history
+- documented decisions
+- Docker environment
+- production-style architecture
+
+The system is designed to demonstrate scalable full-stack architecture rather than only CRUD functionality.
